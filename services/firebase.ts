@@ -1,4 +1,4 @@
-import * as firebaseApp from "firebase/app";
+import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
@@ -36,20 +36,15 @@ const firebaseConfig = getFirebaseConfig();
 
 // Initialize Firebase
 // We only initialize if we have a valid config to prevent "invalid-api-key" errors
-let app: any; // Using any to avoid potential type issues if FirebaseApp is not exported
+let app: FirebaseApp | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
 let isInitialized = false;
 
 if (firebaseConfig) {
   try {
-    // Check if initialized using namespace properties to avoid import errors
-    const getApps = firebaseApp.getApps;
-    const getApp = firebaseApp.getApp;
-    const initializeApp = firebaseApp.initializeApp;
-
-    const apps = getApps ? getApps() : [];
-    app = (apps.length > 0 && getApp) ? getApp() : initializeApp(firebaseConfig);
+    const apps = getApps();
+    app = apps.length > 0 ? getApp() : initializeApp(firebaseConfig);
     
     auth = getAuth(app);
     db = getFirestore(app);

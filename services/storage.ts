@@ -48,9 +48,11 @@ export const storageService = {
       if (onError) {
         // Create a fake AuthError to trigger the config modal
         onError({ 
+          name: 'AuthError',
           code: 'auth/invalid-api-key', 
-          message: 'Missing or invalid Firebase Configuration' 
-        } as any);
+          message: 'Missing or invalid Firebase Configuration',
+          customData: {}
+        } as AuthError);
       }
       return () => {};
     }
@@ -62,7 +64,8 @@ export const storageService = {
       },
       (error) => {
         console.error("Auth Observer Error:", error);
-        if (onError) onError(error);
+        // Cast error to AuthError to satisfy TypeScript
+        if (onError) onError(error as AuthError);
       }
     );
   },
