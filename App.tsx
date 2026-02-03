@@ -9,6 +9,61 @@ import { User, ViewState, Vehicle, Trip } from './types';
 import { storageService } from './services/storage';
 import { HelpCircle, X, Settings, AlertTriangle, Save, ShieldAlert } from 'lucide-react';
 
+// --- Mock Data Generator ---
+const generateMockData = () => {
+  const vehicles: Vehicle[] = [
+    { id: 'v1', make: 'Toyota', model: 'Camry', year: '2023', nickname: 'Daily Commuter' },
+    { id: 'v2', make: 'Ford', model: 'F-150', year: '2021', nickname: 'Work Truck' },
+    { id: 'v3', make: 'Tesla', model: 'Model 3', year: '2024', nickname: 'Electric' }
+  ];
+
+  const trips: Trip[] = [];
+  const now = new Date();
+  const destinations = ['Client Office', 'Supply Depot', 'Airport', 'Downtown HQ', 'Site Visit'];
+  const companies = ['Acme Corp', 'Globex', 'Soylent Corp', 'Initech', 'Umbrella Corp'];
+
+  // Helper to subtract days
+  const subDays = (date: Date, days: number) => {
+    const result = new Date(date);
+    result.setDate(result.getDate() - days);
+    return result;
+  };
+
+  // Generate 60 trips spread over ~4 months
+  for (let i = 0; i < 60; i++) {
+    // Generate dates so we have "Today", "Yesterday", "Last Week", etc.
+    // Skew towards recent
+    let daysAgo;
+    if (i < 2) daysAgo = 0; // Today
+    else if (i < 4) daysAgo = 1; // Yesterday
+    else if (i < 10) daysAgo = Math.floor(Math.random() * 5) + 2; // Last Week
+    else daysAgo = Math.floor(i * 2); // Older
+
+    const date = subDays(now, daysAgo);
+    const v = vehicles[i % vehicles.length];
+    const start = 10000 + (i * 45);
+    const dist = 15 + Math.floor(Math.random() * 60);
+    
+    trips.push({
+      id: `t${i}`,
+      vehicleId: v.id,
+      date: date.toISOString().split('T')[0],
+      startTime: '09:00',
+      startOdometer: start,
+      endOdometer: start + dist,
+      distance: dist,
+      destination: destinations[i % destinations.length],
+      company: companies[i % companies.length],
+      timestamp: date.getTime()
+    });
+  }
+  
+  // Sort mock trips by date desc
+  trips.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
+
+  return { vehicles, trips };
+};
+
 // --- Permission Error Modal ---
 const PermissionErrorModal = ({ onClose }: { onClose: () => void }) => (
   <div className="fixed inset-0 bg-slate-900/90 z-[70] flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
@@ -180,6 +235,9 @@ function App() {
 
     const unsubscribe = storageService.observeAuth(
       async (currentUser) => {
+        // If we are already in guest mode, don't overwrite with null from auth observer
+        if (user?.isGuest) return;
+
         setUser(currentUser);
         if (currentUser) {
           if (view === 'landing') setView('dashboard');
@@ -206,7 +264,7 @@ function App() {
       }
     );
     return () => unsubscribe();
-  }, []);
+  }, [user?.isGuest]); // Dependency ensures we don't clobber guest state
 
   const handleLogin = async () => {
     try {
@@ -216,21 +274,50 @@ function App() {
     }
   };
 
+  const handleGuestLogin = () => {
+    const mockData = generateMockData();
+    setUser({
+      uid: 'guest-' + Date.now(),
+      email: 'guest@example.com',
+      displayName: 'Guest User',
+      isGuest: true,
+      photoURL: 'https://ui-avatars.com/api/?name=Guest+User&background=6366f1&color=fff'
+    });
+    setVehicles(mockData.vehicles);
+    setTrips(mockData.trips);
+    setView('dashboard');
+  };
+
   const handleLogout = async () => {
-    await storageService.logout();
+    if (user?.isGuest) {
+      setUser(null);
+      setVehicles([]);
+      setTrips([]);
+      setView('landing');
+    } else {
+      await storageService.logout();
+    }
   };
 
   const handleAddVehicle = async (v: Vehicle) => {
+    if (user?.isGuest) {
+      alert("Guest Mode is Read-Only. Changes are not saved.");
+      return;
+    }
     try {
       const updated = await storageService.saveVehicle(v);
       setVehicles(updated);
     } catch (err) {
       handleAuthError(err);
-      throw err; // Propagate to component for loading state
+      throw err; 
     }
   };
 
   const handleDeleteVehicle = async (id: string) => {
+    if (user?.isGuest) {
+      alert("Guest Mode is Read-Only. Changes are not saved.");
+      return;
+    }
     if (confirm('Are you sure?')) {
       const updated = await storageService.deleteVehicle(id);
       setVehicles(updated);
@@ -238,6 +325,10 @@ function App() {
   };
 
   const handleSaveTrip = async (t: Trip) => {
+    if (user?.isGuest) {
+      alert("Guest Mode is Read-Only. Changes are not saved.");
+      return;
+    }
     try {
       const updated = await storageService.saveTrip(t);
       setTrips(updated);
@@ -249,6 +340,10 @@ function App() {
   };
 
   const handleBatchSaveTrips = async (newTrips: Trip[]) => {
+    if (user?.isGuest) {
+      alert("Guest Mode is Read-Only. Changes are not saved.");
+      return;
+    }
     try {
       const updated = await storageService.batchSaveTrips(newTrips);
       setTrips(updated);
@@ -271,7 +366,7 @@ function App() {
     <>
       {view === 'landing' ? (
         <div className="relative">
-          <LandingPage onLogin={handleLogin} onHelp={() => setShowHelp(true)} />
+          <LandingPage onLogin={handleLogin} onGuestLogin={handleGuestLogin} onHelp={() => setShowHelp(true)} />
           <button 
             onClick={() => setShowConfig(true)}
             className="fixed bottom-4 right-4 p-2 text-slate-500 hover:text-slate-300 transition-colors z-50 bg-slate-800/50 rounded-full"

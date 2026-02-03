@@ -1,12 +1,13 @@
 import React from 'react';
-import { CheckCircle, Shield, BarChart3, Cloud, HelpCircle, Mail, FileText, Lock } from 'lucide-react';
+import { CheckCircle, Shield, BarChart3, Cloud, HelpCircle, Mail, FileText, Lock, Eye } from 'lucide-react';
 
 interface LandingPageProps {
   onLogin: () => void;
+  onGuestLogin: () => void;
   onHelp: () => void;
 }
 
-export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onHelp }) => {
+export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onGuestLogin, onHelp }) => {
   return (
     <div className="min-h-screen bg-slate-900 text-white">
       {/* Navigation */}
@@ -56,13 +57,15 @@ export const LandingPage: React.FC<LandingPageProps> = ({ onLogin, onHelp }) => 
             <img src="https://www.google.com/favicon.ico" alt="Google" className="w-5 h-5" />
             Continue with Google
           </button>
-          <a 
-            href="#features"
-            className="px-8 py-4 bg-slate-800 text-white rounded-lg font-bold text-lg hover:bg-slate-700 transition-colors"
+          <button 
+            onClick={onGuestLogin}
+            className="px-8 py-4 bg-slate-800 border border-slate-700 text-white rounded-lg font-bold text-lg hover:bg-slate-700 hover:border-blue-500 transition-all flex items-center justify-center gap-2 group"
           >
-            Learn More
-          </a>
+            <Eye size={20} className="text-blue-400 group-hover:text-white transition-colors" />
+            Try Guest Demo
+          </button>
         </div>
+        <p className="mt-4 text-sm text-slate-500">Guest mode allows read-only access to sample data.</p>
       </div>
 
       {/* Features Section */}
