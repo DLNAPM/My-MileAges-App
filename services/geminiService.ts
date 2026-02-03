@@ -41,7 +41,7 @@ export const generateMileageInsight = async (trips: Trip[], vehicles: Vehicle[])
       contents: prompt,
     });
 
-    return response.text;
+    return response.text ?? "Unable to generate insights at this time.";
   } catch (error) {
     console.error("Gemini Error:", error);
     return "Could not generate insights at this time. Please try again later.";
