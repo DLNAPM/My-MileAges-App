@@ -165,8 +165,10 @@ function App() {
   };
 
   useEffect(() => {
-    const hasLocalKey = !!localStorage.getItem('mileages_firebase_config');
-    if (!hasLocalKey) {
+    // Check if Firebase is actually configured (env vars OR local storage)
+    const isConfigured = storageService.isConfigured();
+    
+    if (!isConfigured) {
        setLoading(false);
        setShowConfig(true);
        return;

@@ -21,6 +21,11 @@ const formatUser = (fbUser: FirebaseUser): User => ({
 });
 
 export const storageService = {
+  // --- Check Configuration ---
+  isConfigured(): boolean {
+    return isInitialized;
+  },
+
   // --- Auth Methods ---
 
   async login(): Promise<User> {
