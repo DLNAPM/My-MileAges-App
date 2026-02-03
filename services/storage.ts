@@ -105,12 +105,12 @@ export const storageService = {
   async getUniqueDestinations(): Promise<string[]> {
     const trips = await this.getTrips();
     const destinations = new Set(trips.map(t => t.destination).filter((d): d is string => !!d));
-    return Array.from(destinations);
+    return Array.from(destinations) as string[];
   },
 
   async getUniqueCompanies(): Promise<string[]> {
     const trips = await this.getTrips();
     const companies = new Set(trips.map(t => t.company).filter((c): c is string => !!c));
-    return Array.from(companies);
+    return Array.from(companies) as string[];
   }
 };
