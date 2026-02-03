@@ -1,16 +1,11 @@
 import { GoogleGenAI } from "@google/genai";
 import { Trip, Vehicle } from "../types";
 
-const GEMINI_API_KEY = process.env.API_KEY || '';
-
 export const generateMileageInsight = async (trips: Trip[], vehicles: Vehicle[]) => {
-  if (!GEMINI_API_KEY) {
-    console.warn("Gemini API Key missing");
-    return "API Key is missing. Please configure the application with a valid API Key to receive AI insights.";
-  }
-
+  // We use process.env.API_KEY directly as per SDK guidelines. 
+  // We assume it is valid and configured in the environment.
   try {
-    const ai = new GoogleGenAI({ apiKey: GEMINI_API_KEY });
+    const ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
     
     // Summarize data for the prompt to avoid token limits
     const recentTrips = trips.slice(0, 50); // Analyze last 50 trips

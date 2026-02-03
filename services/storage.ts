@@ -1,108 +1,117 @@
 import { Trip, Vehicle, User } from '../types';
+import { auth, db, googleProvider } from './firebase';
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
+import { 
+  collection, 
+  doc, 
+  getDocs, 
+  setDoc, 
+  deleteDoc, 
+  query, 
+  orderBy 
+} from 'firebase/firestore';
 
-// Keys for local storage
-const STORAGE_KEYS = {
-  USER: 'mymileages_user',
-  VEHICLES: 'mymileages_vehicles',
-  TRIPS: 'mymileages_trips'
-};
-
-// Simulate API delay
-const delay = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+// Helper to format Firebase user to App User
+const formatUser = (fbUser: FirebaseUser): User => ({
+  uid: fbUser.uid,
+  email: fbUser.email || '',
+  displayName: fbUser.displayName || 'User',
+  photoURL: fbUser.photoURL || undefined
+});
 
 export const storageService = {
-  // User Auth Simulation
+  // --- Auth Methods ---
+
   async login(): Promise<User> {
-    await delay(800);
-    const mockUser: User = {
-      uid: 'user_12345',
-      email: 'driver@example.com',
-      displayName: 'Alex Driver',
-      photoURL: 'https://picsum.photos/100/100'
-    };
-    localStorage.setItem(STORAGE_KEYS.USER, JSON.stringify(mockUser));
-    return mockUser;
+    const result = await signInWithPopup(auth, googleProvider);
+    return formatUser(result.user);
   },
 
   async logout(): Promise<void> {
-    await delay(300);
-    localStorage.removeItem(STORAGE_KEYS.USER);
+    await signOut(auth);
   },
 
-  getUser(): User | null {
-    const data = localStorage.getItem(STORAGE_KEYS.USER);
-    return data ? JSON.parse(data) : null;
+  /**
+   * Subscribes to Auth State changes.
+   * Returns an unsubscribe function.
+   */
+  observeAuth(callback: (user: User | null) => void): () => void {
+    return onAuthStateChanged(auth, (fbUser) => {
+      callback(fbUser ? formatUser(fbUser) : null);
+    });
   },
 
-  // Vehicle Methods
+  // --- Vehicle Methods ---
+
   async getVehicles(): Promise<Vehicle[]> {
-    await delay(300);
-    const data = localStorage.getItem(STORAGE_KEYS.VEHICLES);
-    return data ? JSON.parse(data) : [];
+    const user = auth.currentUser;
+    if (!user) return [];
+
+    const vehiclesRef = collection(db, 'users', user.uid, 'vehicles');
+    const snapshot = await getDocs(vehiclesRef);
+    return snapshot.docs.map(doc => doc.data() as Vehicle);
   },
 
   async saveVehicle(vehicle: Vehicle): Promise<Vehicle[]> {
-    await delay(300);
-    const vehicles = await this.getVehicles();
-    const existingIndex = vehicles.findIndex(v => v.id === vehicle.id);
-    
-    let newVehicles;
-    if (existingIndex >= 0) {
-      newVehicles = [...vehicles];
-      newVehicles[existingIndex] = vehicle;
-    } else {
-      newVehicles = [...vehicles, vehicle];
-    }
-    
-    localStorage.setItem(STORAGE_KEYS.VEHICLES, JSON.stringify(newVehicles));
-    return newVehicles;
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    // We use setDoc with the vehicle.id to ensure we create or update the specific document
+    // logic remains similar: the UI generates the ID, so we trust it.
+    const vehicleRef = doc(db, 'users', user.uid, 'vehicles', vehicle.id);
+    await setDoc(vehicleRef, vehicle);
+
+    // Return updated list
+    return this.getVehicles();
   },
 
   async deleteVehicle(id: string): Promise<Vehicle[]> {
-    await delay(300);
-    const vehicles = await this.getVehicles();
-    const newVehicles = vehicles.filter(v => v.id !== id);
-    localStorage.setItem(STORAGE_KEYS.VEHICLES, JSON.stringify(newVehicles));
-    return newVehicles;
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    await deleteDoc(doc(db, 'users', user.uid, 'vehicles', id));
+    return this.getVehicles();
   },
 
-  // Trip Methods
+  // --- Trip Methods ---
+
   async getTrips(): Promise<Trip[]> {
-    await delay(300);
-    const data = localStorage.getItem(STORAGE_KEYS.TRIPS);
-    return data ? JSON.parse(data) : [];
+    const user = auth.currentUser;
+    if (!user) return [];
+
+    const tripsRef = collection(db, 'users', user.uid, 'trips');
+    // Sort by date descending
+    const q = query(tripsRef, orderBy('date', 'desc'));
+    const snapshot = await getDocs(q);
+    
+    // Sort logic in code as well in case of time clashes or string date formats
+    const trips = snapshot.docs.map(doc => doc.data() as Trip);
+    return trips.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
   },
 
   async saveTrip(trip: Trip): Promise<Trip[]> {
-    await delay(300);
-    const trips = await this.getTrips();
-    const existingIndex = trips.findIndex(t => t.id === trip.id);
-    
-    let newTrips;
-    if (existingIndex >= 0) {
-      newTrips = [...trips];
-      newTrips[existingIndex] = trip;
-    } else {
-      newTrips = [...trips, trip];
-    }
-    
-    // Sort by date descending
-    newTrips.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
-    
-    localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(newTrips));
-    return newTrips;
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    const tripRef = doc(db, 'users', user.uid, 'trips', trip.id);
+    await setDoc(tripRef, trip);
+
+    return this.getTrips();
   },
 
   async deleteTrip(id: string): Promise<Trip[]> {
-    await delay(300);
-    const trips = await this.getTrips();
-    const newTrips = trips.filter(t => t.id !== id);
-    localStorage.setItem(STORAGE_KEYS.TRIPS, JSON.stringify(newTrips));
-    return newTrips;
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    await deleteDoc(doc(db, 'users', user.uid, 'trips', id));
+    return this.getTrips();
   },
 
-  // Helpers for Autocomplete
+  // --- Helpers for Autocomplete ---
+
   async getUniqueDestinations(): Promise<string[]> {
+    // Note: Firestore doesn't support SELECT DISTINCT natively.
+    // For small/medium datasets, client-side filtering is acceptable.
     const trips = await this.getTrips();
     const destinations = new Set(trips.map(t => t.destination).filter((d): d is string => !!d));
     return Array.from(destinations) as string[];

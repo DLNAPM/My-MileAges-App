@@ -43,49 +43,52 @@ function App() {
   const [showHelp, setShowHelp] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Initial Load
+  // Auth & Data Loading
   useEffect(() => {
-    const init = async () => {
-      const savedUser = storageService.getUser();
-      if (savedUser) {
-        setUser(savedUser);
-        setView('dashboard');
-        // Load data in background
-        const [v, t] = await Promise.all([
-          storageService.getVehicles(),
-          storageService.getTrips()
-        ]);
-        setVehicles(v);
-        setTrips(t);
+    // Subscribe to Auth State
+    const unsubscribe = storageService.observeAuth(async (currentUser) => {
+      setUser(currentUser);
+      
+      if (currentUser) {
+        // If we are on landing, move to dashboard
+        if (view === 'landing') setView('dashboard');
+        
+        // Fetch Data
+        try {
+          const [v, t] = await Promise.all([
+            storageService.getVehicles(),
+            storageService.getTrips()
+          ]);
+          setVehicles(v);
+          setTrips(t);
+        } catch (err) {
+          console.error("Error fetching data:", err);
+        }
+      } else {
+        // Clear data on logout/no user
+        setVehicles([]);
+        setTrips([]);
+        setView('landing');
       }
+      
       setLoading(false);
-    };
-    init();
-  }, []);
+    });
 
-  // Data Refresh Helpers
-  const refreshData = async () => {
-    const [v, t] = await Promise.all([
-      storageService.getVehicles(),
-      storageService.getTrips()
-    ]);
-    setVehicles(v);
-    setTrips(t);
-  };
+    return () => unsubscribe();
+  }, []); // Only setup observer on mount
 
   const handleLogin = async () => {
-    const u = await storageService.login();
-    setUser(u);
-    setView('dashboard');
-    refreshData();
+    try {
+      await storageService.login();
+      // Observer in useEffect will handle state updates
+    } catch (error) {
+      console.error("Login failed", error);
+    }
   };
 
   const handleLogout = async () => {
     await storageService.logout();
-    setUser(null);
-    setView('landing');
-    setVehicles([]);
-    setTrips([]);
+    // Observer in useEffect will handle state updates
   };
 
   // CRUD Handlers
@@ -105,8 +108,6 @@ function App() {
     const updated = await storageService.saveTrip(t);
     setTrips(updated);
     setView('dashboard');
-    // Check if finished for day (simple prompt simulation)
-    // In a real app, this might be a more complex workflow, but here we just route back.
   };
 
   if (loading) {
@@ -129,9 +130,9 @@ function App() {
           onLogout={handleLogout}
           onShowHelp={() => setShowHelp(true)}
         >
-          {view === 'dashboard' && (
+          {view === 'dashboard' && user && (
             <Dashboard 
-              user={user!} 
+              user={user} 
               trips={trips} 
               vehicles={vehicles}
               onLogTrip={() => setView('log_trip')}
