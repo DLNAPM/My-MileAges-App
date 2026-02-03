@@ -7,7 +7,40 @@ import { TripLogger } from './components/TripLogger';
 import { Reports } from './components/Reports';
 import { User, ViewState, Vehicle, Trip } from './types';
 import { storageService } from './services/storage';
-import { HelpCircle, X, Settings, AlertTriangle, Save } from 'lucide-react';
+import { HelpCircle, X, Settings, AlertTriangle, Save, ShieldAlert } from 'lucide-react';
+
+// --- Permission Error Modal ---
+const PermissionErrorModal = ({ onClose }: { onClose: () => void }) => (
+  <div className="fixed inset-0 bg-slate-900/90 z-[70] flex items-center justify-center p-4 backdrop-blur-md animate-fade-in">
+    <div className="bg-white rounded-xl max-w-lg w-full p-8 shadow-2xl relative border-t-4 border-red-500">
+      <div className="flex items-center space-x-3 mb-6 text-red-600">
+        <ShieldAlert size={32} />
+        <h2 className="text-2xl font-bold text-slate-900">Database Permission Denied</h2>
+      </div>
+      
+      <div className="space-y-4 text-slate-600 mb-8">
+        <p>Your app is connected to Firebase, but your <strong>Firestore Security Rules</strong> are blocking the save operation.</p>
+        
+        <div className="bg-slate-100 p-4 rounded-lg font-mono text-xs overflow-x-auto border border-slate-200">
+          <p className="text-blue-700 font-bold mb-2">// Copy this to your Firebase Console > Firestore > Rules:</p>
+          <pre>{`match /users/{userId}/{document=**} {
+  allow read, write: if request.auth != null 
+    && request.auth.uid == userId;
+}`}</pre>
+        </div>
+        
+        <p className="text-sm">This ensures only you can read and write your own mileage data.</p>
+      </div>
+
+      <button 
+        onClick={onClose}
+        className="w-full bg-slate-900 text-white py-3 rounded-lg font-bold hover:bg-slate-800 transition-colors"
+      >
+        I've updated my rules
+      </button>
+    </div>
+  </div>
+);
 
 // --- Help Modal ---
 const HelpModal = ({ onClose }: { onClose: () => void }) => (
@@ -36,18 +69,16 @@ const HelpModal = ({ onClose }: { onClose: () => void }) => (
   </div>
 );
 
-// --- Config Modal for Missing Keys ---
+// --- Config Modal ---
 const ConfigModal = ({ onClose }: { onClose: () => void }) => {
   const [jsonConfig, setJsonConfig] = useState('');
   const [error, setError] = useState('');
 
   useEffect(() => {
-    // Pre-fill with existing if available
     const existing = localStorage.getItem('mileages_firebase_config');
     if (existing) {
       setJsonConfig(existing);
     } else {
-      // Clean template
       setJsonConfig(`{
   "apiKey": "YOUR_API_KEY",
   "authDomain": "YOUR_PROJECT.firebaseapp.com",
@@ -63,11 +94,10 @@ const ConfigModal = ({ onClose }: { onClose: () => void }) => {
     try {
       const parsed = JSON.parse(jsonConfig);
       if (!parsed.apiKey) throw new Error("Missing apiKey in JSON");
-      
       localStorage.setItem('mileages_firebase_config', JSON.stringify(parsed));
-      window.location.reload(); // Reload to apply changes
+      window.location.reload();
     } catch (e) {
-      setError("Invalid JSON format. Please copy the config object directly from Firebase Console.");
+      setError("Invalid JSON format.");
     }
   };
 
@@ -77,49 +107,25 @@ const ConfigModal = ({ onClose }: { onClose: () => void }) => {
         <button onClick={onClose} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
           <X size={24} />
         </button>
-        
         <div className="flex items-center space-x-3 mb-4 text-amber-600">
           <Settings size={28} />
           <h2 className="text-xl font-bold text-slate-900">App Configuration</h2>
         </div>
-
         <div className="mb-4 bg-blue-50 p-4 rounded-lg border border-blue-100">
           <p className="text-sm text-blue-800">
-            <strong>Firebase Setup Required:</strong> It seems the application is missing valid Firebase credentials.
-            <br/><br/>
-            Please paste your Firebase project configuration object below. This will be saved to your browser's local storage.
+            <strong>Firebase Setup Required:</strong> Paste your project configuration object from the Firebase Console.
           </p>
         </div>
-
         <div className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium text-slate-700 mb-1">Firebase Configuration JSON</label>
-            <textarea
-              className="w-full h-48 font-mono text-xs bg-slate-50 border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
-              value={jsonConfig}
-              onChange={(e) => setJsonConfig(e.target.value)}
-              placeholder="{ apiKey: ... }"
-            />
-          </div>
-          
-          {error && (
-            <div className="flex items-center space-x-2 text-red-600 text-sm">
-              <AlertTriangle size={16} />
-              <span>{error}</span>
-            </div>
-          )}
-
+          <textarea
+            className="w-full h-48 font-mono text-xs bg-slate-50 border border-slate-300 rounded-lg p-3 focus:ring-2 focus:ring-blue-500 outline-none"
+            value={jsonConfig}
+            onChange={(e) => setJsonConfig(e.target.value)}
+          />
+          {error && <p className="text-red-600 text-sm">{error}</p>}
           <div className="flex space-x-3">
-             <button 
-              onClick={onClose}
-              className="flex-1 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
-            >
-              Cancel
-            </button>
-            <button 
-              onClick={handleSave}
-              className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center space-x-2"
-            >
+             <button onClick={onClose} className="flex-1 px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg">Cancel</button>
+             <button onClick={handleSave} className="flex-1 bg-blue-600 text-white py-2 rounded-lg font-medium hover:bg-blue-700 flex items-center justify-center space-x-2">
               <Save size={18} />
               <span>Save & Reload</span>
             </button>
@@ -138,26 +144,22 @@ function App() {
   const [trips, setTrips] = useState<Trip[]>([]);
   const [showHelp, setShowHelp] = useState(false);
   const [showConfig, setShowConfig] = useState(false);
+  const [showPermissionError, setShowPermissionError] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Common Error Handler
   const handleAuthError = (error: any) => {
-    console.error("Auth/Config Error:", error);
-    if (error.code === 'auth/invalid-api-key' || error.message?.includes('apiKey') || error.message?.includes('Missing API Key')) {
+    if (error.code === 'auth/invalid-api-key' || error.message?.includes('apiKey')) {
       setShowConfig(true);
+    } else if (error.code === 'permission-denied' || error.message?.includes('permission')) {
+      setShowPermissionError(true);
     } else {
-      alert(`Authentication Error: ${error.message}`);
+      console.error("Auth/Config Error:", error);
     }
   };
 
-  // Auth & Data Loading
   useEffect(() => {
-    // Immediate check for configuration existence to avoid unnecessary loads
-    const hasEnvKey = process.env.FIREBASE_API_KEY && process.env.FIREBASE_API_KEY !== "YOUR_API_KEY";
     const hasLocalKey = !!localStorage.getItem('mileages_firebase_config');
-
-    if (!hasEnvKey && !hasLocalKey) {
-       // Stop here, don't try to observe auth which might throw errors
+    if (!hasLocalKey) {
        setLoading(false);
        setShowConfig(true);
        return;
@@ -166,7 +168,6 @@ function App() {
     const unsubscribe = storageService.observeAuth(
       async (currentUser) => {
         setUser(currentUser);
-        
         if (currentUser) {
           if (view === 'landing') setView('dashboard');
           try {
@@ -177,7 +178,7 @@ function App() {
             setVehicles(v);
             setTrips(t);
           } catch (err) {
-            console.error("Error fetching data:", err);
+            handleAuthError(err);
           }
         } else {
           setVehicles([]);
@@ -186,18 +187,15 @@ function App() {
         }
         setLoading(false);
       },
-      // Error Callback for ObserveAuth
       (error) => {
         setLoading(false);
         handleAuthError(error);
       }
     );
-    
     return () => unsubscribe();
   }, []);
 
   const handleLogin = async () => {
-    console.log("App: handleLogin triggered");
     try {
       await storageService.login();
     } catch (error: any) {
@@ -210,30 +208,42 @@ function App() {
   };
 
   const handleAddVehicle = async (v: Vehicle) => {
-    const updated = await storageService.saveVehicle(v);
-    setVehicles(updated);
+    try {
+      const updated = await storageService.saveVehicle(v);
+      setVehicles(updated);
+    } catch (err) {
+      handleAuthError(err);
+      throw err; // Propagate to component for loading state
+    }
   };
 
   const handleDeleteVehicle = async (id: string) => {
-    if (confirm('Are you sure? This will not delete trips associated with this vehicle.')) {
+    if (confirm('Are you sure?')) {
       const updated = await storageService.deleteVehicle(id);
       setVehicles(updated);
     }
   };
 
   const handleSaveTrip = async (t: Trip) => {
-    const updated = await storageService.saveTrip(t);
-    setTrips(updated);
-    // Only navigate to dashboard if we are in log trip view, if we are in reports (editing), stay there
-    if (view === 'log_trip') {
-      setView('dashboard');
+    try {
+      const updated = await storageService.saveTrip(t);
+      setTrips(updated);
+      if (view === 'log_trip') setView('dashboard');
+    } catch (err) {
+      handleAuthError(err);
+      throw err;
     }
   };
 
   const handleBatchSaveTrips = async (newTrips: Trip[]) => {
-    const updated = await storageService.batchSaveTrips(newTrips);
-    setTrips(updated);
-    setView('dashboard');
+    try {
+      const updated = await storageService.batchSaveTrips(newTrips);
+      setTrips(updated);
+      setView('dashboard');
+    } catch (err) {
+      handleAuthError(err);
+      throw err;
+    }
   };
 
   if (loading) {
@@ -249,11 +259,9 @@ function App() {
       {view === 'landing' ? (
         <div className="relative">
           <LandingPage onLogin={handleLogin} onHelp={() => setShowHelp(true)} />
-          {/* Config button always available on landing page */}
           <button 
             onClick={() => setShowConfig(true)}
             className="fixed bottom-4 right-4 p-2 text-slate-500 hover:text-slate-300 transition-colors z-50 bg-slate-800/50 rounded-full"
-            title="Configure App"
           >
             <Settings size={16} />
           </button>
@@ -302,6 +310,7 @@ function App() {
       
       {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
       {showConfig && <ConfigModal onClose={() => setShowConfig(false)} />}
+      {showPermissionError && <PermissionErrorModal onClose={() => setShowPermissionError(false)} />}
     </>
   );
 }
