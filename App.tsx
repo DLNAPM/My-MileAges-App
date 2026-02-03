@@ -19,17 +19,24 @@ const PermissionErrorModal = ({ onClose }: { onClose: () => void }) => (
       </div>
       
       <div className="space-y-4 text-slate-600 mb-8">
-        <p>Your app is connected to Firebase, but your <strong>Firestore Security Rules</strong> are blocking the save operation.</p>
+        <p>Your app is connected to Firebase, but your <strong>Firestore Security Rules</strong> are blocking the operation.</p>
         
         <div className="bg-slate-100 p-4 rounded-lg font-mono text-xs overflow-x-auto border border-slate-200">
           <p className="text-blue-700 font-bold mb-2">// Copy this to your Firebase Console &gt; Firestore &gt; Rules:</p>
-          <pre className="mt-2 text-slate-800">{`match /users/{userId}/{document=**} {
-  allow read, write: if request.auth != null 
-    && request.auth.uid == userId;
+          <pre className="mt-2 text-slate-800">{`rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /users/{userId}/{document=**} {
+      // Owner Access
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+      // Shared Access (Future Proofing)
+      allow read: if request.auth != null && request.auth.uid in resource.data.sharedWith;
+    }
+  }
 }`}</pre>
         </div>
         
-        <p className="text-sm">This ensures only you can read and write your own mileage data.</p>
+        <p className="text-sm">This rule allows you to manage your data and enables future sharing capabilities.</p>
       </div>
 
       <button 
