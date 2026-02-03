@@ -1,0 +1,5 @@
+{
+  "name": "My MileAges",
+  "description": "A smart mileage tracking application powered by Gemini. Track trips, manage vehicles, and generate detailed reports with AI insights.",
+  "requestFramePermissions": []
+}
