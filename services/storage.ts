@@ -1,6 +1,6 @@
 import { Trip, Vehicle, User } from '../types';
 import { auth, db, googleProvider, isInitialized } from './firebase';
-import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser, AuthError } from 'firebase/auth';
+import { signInWithPopup, signOut, onAuthStateChanged, User as FirebaseUser } from 'firebase/auth';
 import { 
   collection, 
   doc, 
@@ -23,9 +23,27 @@ export const storageService = {
   // --- Auth Methods ---
 
   async login(): Promise<User> {
-    if (!isInitialized || !auth) throw new Error("Firebase not initialized. Please configure API keys.");
-    const result = await signInWithPopup(auth, googleProvider);
-    return formatUser(result.user);
+    console.log("StorageService: Login called");
+    if (!isInitialized) {
+       console.error("StorageService: Firebase not initialized");
+       // Throw error that triggers the config modal
+       const e: any = new Error("Missing API Key: Firebase configuration required");
+       e.code = 'auth/invalid-api-key';
+       throw e;
+    }
+    if (!auth) {
+        throw new Error("Auth service not available");
+    }
+    
+    try {
+        console.log("StorageService: Prompting Google Sign In...");
+        const result = await signInWithPopup(auth, googleProvider);
+        console.log("StorageService: Login successful", result.user.uid);
+        return formatUser(result.user);
+    } catch (error: any) {
+        console.error("StorageService: Login failed", error);
+        throw error;
+    }
   },
 
   async logout(): Promise<void> {
@@ -40,19 +58,19 @@ export const storageService = {
    */
   observeAuth(
     callback: (user: User | null) => void,
-    onError?: (error: AuthError) => void
+    onError?: (error: any) => void
   ): () => void {
     if (!isInitialized || !auth) {
       // If not initialized, we can treat this as an error state or just null user
       // Calling onError allows the UI to show the config modal
       if (onError) {
-        // Create a fake AuthError to trigger the config modal
+        // Create a fake error object to trigger the config modal
         onError({ 
           name: 'AuthError',
           code: 'auth/invalid-api-key', 
           message: 'Missing or invalid Firebase Configuration',
           customData: {}
-        } as AuthError);
+        });
       }
       return () => {};
     }
@@ -64,8 +82,7 @@ export const storageService = {
       },
       (error) => {
         console.error("Auth Observer Error:", error);
-        // Cast error to AuthError to satisfy TypeScript
-        if (onError) onError(error as AuthError);
+        if (onError) onError(error);
       }
     );
   },

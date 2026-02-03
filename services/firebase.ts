@@ -1,4 +1,4 @@
-import { initializeApp, getApps, getApp, FirebaseApp } from "firebase/app";
+import { initializeApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, Auth } from "firebase/auth";
 import { getFirestore, Firestore } from "firebase/firestore";
 
@@ -36,16 +36,29 @@ const firebaseConfig = getFirebaseConfig();
 
 // Initialize Firebase
 // We only initialize if we have a valid config to prevent "invalid-api-key" errors
-let app: FirebaseApp | undefined;
+// Using ReturnType to avoid importing FirebaseApp type explicitly if it causes issues
+let app: ReturnType<typeof initializeApp> | undefined;
 let auth: Auth | undefined;
 let db: Firestore | undefined;
 let isInitialized = false;
 
 if (firebaseConfig) {
   try {
-    const apps = getApps();
-    app = apps.length > 0 ? getApp() : initializeApp(firebaseConfig);
+    // In a standard module system, this runs once. 
+    // We catch potential duplicate app errors if HMR re-runs this.
+    try {
+      app = initializeApp(firebaseConfig);
+    } catch (e: any) {
+       // If app is already initialized (e.g. HMR), we can't easily retrieve it without getApp
+       // but strictly speaking for production build this shouldn't happen.
+       // We'll log it and proceed (auth/db will attach to default app if app is undefined)
+       if (e.code !== 'app/duplicate-app') {
+         throw e;
+       }
+       console.warn("Firebase app initialized multiple times (likely HMR)");
+    }
     
+    // If app is undefined (duplicate), getAuth() and getFirestore() use the default app.
     auth = getAuth(app);
     db = getFirestore(app);
     isInitialized = true;

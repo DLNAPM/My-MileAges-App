@@ -197,6 +197,7 @@ function App() {
   }, []);
 
   const handleLogin = async () => {
+    console.log("App: handleLogin triggered");
     try {
       await storageService.login();
     } catch (error: any) {
