@@ -122,6 +122,9 @@ const ConfigModal = ({ onClose }: { onClose: () => void }) => {
           <p className="text-sm text-blue-800">
             <strong>Firebase Setup Required:</strong> Paste your project configuration object from the Firebase Console.
           </p>
+          <p className="text-xs text-blue-600 mt-2">
+            Alternatively, set environment variables (e.g., <code>FIREBASE_API_KEY</code> or <code>VITE_FIREBASE_API_KEY</code>) in your hosting provider and reload.
+          </p>
         </div>
         <div className="space-y-4">
           <textarea
@@ -169,6 +172,7 @@ function App() {
     const isConfigured = storageService.isConfigured();
     
     if (!isConfigured) {
+       console.log("App: Firebase not configured, showing config modal.");
        setLoading(false);
        setShowConfig(true);
        return;
