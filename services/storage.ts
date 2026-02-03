@@ -8,7 +8,8 @@ import {
   setDoc, 
   deleteDoc, 
   query, 
-  orderBy 
+  orderBy,
+  writeBatch
 } from 'firebase/firestore';
 
 // Helper to format Firebase user to App User
@@ -142,6 +143,28 @@ export const storageService = {
 
     const tripRef = doc(db, 'users', user.uid, 'trips', trip.id);
     await setDoc(tripRef, trip);
+
+    return this.getTrips();
+  },
+
+  async batchSaveTrips(trips: Trip[]): Promise<Trip[]> {
+    if (!isInitialized || !auth || !db) throw new Error("Firebase not configured");
+    const user = auth.currentUser;
+    if (!user) throw new Error("User not authenticated");
+
+    // Firestore batches allow up to 500 writes
+    const chunkSize = 500;
+    for (let i = 0; i < trips.length; i += chunkSize) {
+      const chunk = trips.slice(i, i + chunkSize);
+      const batch = writeBatch(db);
+      
+      chunk.forEach(trip => {
+        const tripRef = doc(db!, 'users', user.uid, 'trips', trip.id);
+        batch.set(tripRef, trip);
+      });
+
+      await batch.commit();
+    }
 
     return this.getTrips();
   },

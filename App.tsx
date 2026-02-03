@@ -224,6 +224,15 @@ function App() {
   const handleSaveTrip = async (t: Trip) => {
     const updated = await storageService.saveTrip(t);
     setTrips(updated);
+    // Only navigate to dashboard if we are in log trip view, if we are in reports (editing), stay there
+    if (view === 'log_trip') {
+      setView('dashboard');
+    }
+  };
+
+  const handleBatchSaveTrips = async (newTrips: Trip[]) => {
+    const updated = await storageService.batchSaveTrips(newTrips);
+    setTrips(updated);
     setView('dashboard');
   };
 
@@ -277,11 +286,16 @@ function App() {
             <TripLogger 
               vehicles={vehicles}
               onSave={handleSaveTrip}
+              onBatchSave={handleBatchSaveTrips}
               onCancel={() => setView('dashboard')}
             />
           )}
           {view === 'reports' && (
-            <Reports trips={trips} vehicles={vehicles} />
+            <Reports 
+              trips={trips} 
+              vehicles={vehicles} 
+              onUpdateTrip={handleSaveTrip}
+            />
           )}
         </Layout>
       )}

@@ -1,18 +1,23 @@
 import React, { useMemo, useState } from 'react';
 import { Trip, Vehicle, ReportFilter } from '../types';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
-import { Download, Share2, Sparkles, Filter, FileText } from 'lucide-react';
+import { Download, Share2, Sparkles, Filter, FileText, Pencil, X, Save } from 'lucide-react';
 import { generateMileageInsight } from '../services/geminiService';
 
 interface ReportsProps {
   trips: Trip[];
   vehicles: Vehicle[];
+  onUpdateTrip?: (trip: Trip) => Promise<void>;
 }
 
-export const Reports: React.FC<ReportsProps> = ({ trips, vehicles }) => {
+export const Reports: React.FC<ReportsProps> = ({ trips, vehicles, onUpdateTrip }) => {
   const [filter, setFilter] = useState<ReportFilter>({ period: 'month', vehicleId: 'all' });
   const [insight, setInsight] = useState<string | null>(null);
   const [isGeneratingInsight, setIsGeneratingInsight] = useState(false);
+  
+  // Edit State
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null);
+  const [editForm, setEditForm] = useState<Partial<Trip>>({});
 
   // Filter Logic
   const filteredTrips = useMemo(() => {
@@ -110,9 +115,26 @@ export const Reports: React.FC<ReportsProps> = ({ trips, vehicles }) => {
     setIsGeneratingInsight(false);
   };
 
-  // Simple Print to PDF Simulation
   const handlePrint = () => {
     window.print();
+  };
+
+  const startEdit = (trip: Trip) => {
+    setEditingTrip(trip);
+    setEditForm({ ...trip });
+  };
+
+  const handleSaveEdit = async () => {
+    if (editingTrip && onUpdateTrip && editForm.startOdometer !== undefined && editForm.endOdometer !== undefined) {
+       const updatedTrip: Trip = {
+         ...editingTrip,
+         ...editForm,
+         distance: Number(editForm.endOdometer) - Number(editForm.startOdometer)
+       } as Trip;
+       
+       await onUpdateTrip(updatedTrip);
+       setEditingTrip(null);
+    }
   };
 
   return (
@@ -235,12 +257,13 @@ export const Reports: React.FC<ReportsProps> = ({ trips, vehicles }) => {
                 <th className="px-6 py-3 text-right">Start</th>
                 <th className="px-6 py-3 text-right">End</th>
                 <th className="px-6 py-3 text-right font-bold">Distance</th>
+                {onUpdateTrip && <th className="px-6 py-3 print:hidden">Edit</th>}
               </tr>
             </thead>
             <tbody>
               {filteredTrips.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="px-6 py-8 text-center text-slate-400">
+                  <td colSpan={7} className="px-6 py-8 text-center text-slate-400">
                     No trips found for this period.
                   </td>
                 </tr>
@@ -260,6 +283,13 @@ export const Reports: React.FC<ReportsProps> = ({ trips, vehicles }) => {
                       <td className="px-6 py-4 text-right font-bold text-blue-600 print:text-black">
                         {trip.distance.toFixed(1)} mi
                       </td>
+                      {onUpdateTrip && (
+                        <td className="px-6 py-4 print:hidden">
+                           <button onClick={() => startEdit(trip)} className="p-2 text-slate-400 hover:text-blue-600 rounded-full hover:bg-blue-50 transition-colors">
+                             <Pencil size={16} />
+                           </button>
+                        </td>
+                      )}
                     </tr>
                   );
                 })
@@ -270,12 +300,107 @@ export const Reports: React.FC<ReportsProps> = ({ trips, vehicles }) => {
                  <tr>
                     <td colSpan={5} className="px-6 py-4 text-right">TOTAL</td>
                     <td className="px-6 py-4 text-right">{totalMileage.toFixed(1)} mi</td>
+                    {onUpdateTrip && <td className="print:hidden"></td>}
                  </tr>
               </tfoot>
             )}
           </table>
         </div>
       </div>
+
+      {/* Edit Modal */}
+      {editingTrip && (
+        <div className="fixed inset-0 bg-black/50 z-50 flex items-center justify-center p-4 backdrop-blur-sm">
+           <div className="bg-white rounded-xl max-w-lg w-full p-6 shadow-2xl relative">
+              <button onClick={() => setEditingTrip(null)} className="absolute top-4 right-4 text-slate-400 hover:text-slate-600">
+                <X size={24} />
+              </button>
+              <h3 className="text-xl font-bold mb-4 text-slate-900">Edit Trip</h3>
+              
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Date</label>
+                    <input 
+                      type="date"
+                      className="w-full rounded-lg border-slate-300 border px-3 py-2 outline-none focus:border-blue-500"
+                      value={editForm.date}
+                      onChange={e => setEditForm({...editForm, date: e.target.value})}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Vehicle</label>
+                    <select
+                      className="w-full rounded-lg border-slate-300 border px-3 py-2 outline-none focus:border-blue-500"
+                      value={editForm.vehicleId}
+                      onChange={e => setEditForm({...editForm, vehicleId: e.target.value})}
+                    >
+                      {vehicles.map(v => (
+                         <option key={v.id} value={v.id}>{v.nickname}</option>
+                      ))}
+                    </select>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-4">
+                   <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">Start Odometer</label>
+                    <input 
+                      type="number"
+                      className="w-full rounded-lg border-slate-300 border px-3 py-2 outline-none focus:border-blue-500"
+                      value={editForm.startOdometer}
+                      onChange={e => setEditForm({...editForm, startOdometer: Number(e.target.value)})}
+                    />
+                  </div>
+                   <div>
+                    <label className="block text-sm font-medium text-slate-700 mb-1">End Odometer</label>
+                    <input 
+                      type="number"
+                      className="w-full rounded-lg border-slate-300 border px-3 py-2 outline-none focus:border-blue-500"
+                      value={editForm.endOdometer}
+                      onChange={e => setEditForm({...editForm, endOdometer: Number(e.target.value)})}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                   <label className="block text-sm font-medium text-slate-700 mb-1">Destination</label>
+                   <input 
+                      type="text"
+                      className="w-full rounded-lg border-slate-300 border px-3 py-2 outline-none focus:border-blue-500"
+                      value={editForm.destination}
+                      onChange={e => setEditForm({...editForm, destination: e.target.value})}
+                    />
+                </div>
+                <div>
+                   <label className="block text-sm font-medium text-slate-700 mb-1">Company</label>
+                   <input 
+                      type="text"
+                      className="w-full rounded-lg border-slate-300 border px-3 py-2 outline-none focus:border-blue-500"
+                      value={editForm.company}
+                      onChange={e => setEditForm({...editForm, company: e.target.value})}
+                    />
+                </div>
+
+                <div className="flex justify-end pt-4 space-x-3">
+                   <button 
+                    onClick={() => setEditingTrip(null)}
+                    className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg"
+                   >
+                     Cancel
+                   </button>
+                   <button 
+                    onClick={handleSaveEdit}
+                    className="bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 shadow-sm flex items-center space-x-2"
+                   >
+                     <Save size={18} />
+                     <span>Save Changes</span>
+                   </button>
+                </div>
+              </div>
+           </div>
+        </div>
+      )}
     </div>
   );
 };
