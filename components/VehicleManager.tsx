@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Vehicle } from '../types';
-import { Car, Trash2, Plus, AlertCircle } from 'lucide-react';
+import { Car, Trash2, Plus, AlertCircle, Pencil, X, Save } from 'lucide-react';
 
 interface VehicleManagerProps {
   vehicles: Vehicle[];
@@ -10,26 +10,40 @@ interface VehicleManagerProps {
 
 export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAdd, onDelete }) => {
   const [isAdding, setIsAdding] = useState(false);
-  const [newVehicle, setNewVehicle] = useState<Partial<Vehicle>>({
+  const [editingVehicleId, setEditingVehicleId] = useState<string | null>(null);
+  const [formData, setFormData] = useState<Partial<Vehicle>>({
     make: '',
     model: '',
     year: '',
     nickname: ''
   });
 
+  const handleStartAdd = () => {
+    setFormData({ make: '', model: '', year: '', nickname: '' });
+    setEditingVehicleId(null);
+    setIsAdding(true);
+  };
+
+  const handleStartEdit = (v: Vehicle) => {
+    setFormData({ ...v });
+    setEditingVehicleId(v.id);
+    setIsAdding(true);
+  };
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newVehicle.make && newVehicle.model && newVehicle.year) {
+    if (formData.make && formData.model && formData.year) {
       const v: Vehicle = {
-        id: crypto.randomUUID(),
-        make: newVehicle.make,
-        model: newVehicle.model,
-        year: newVehicle.year,
-        nickname: newVehicle.nickname || `${newVehicle.year} ${newVehicle.make}`,
+        id: editingVehicleId || crypto.randomUUID(),
+        make: formData.make,
+        model: formData.model,
+        year: formData.year,
+        nickname: formData.nickname || `${formData.year} ${formData.make}`,
       };
       await onAdd(v);
-      setNewVehicle({ make: '', model: '', year: '', nickname: '' });
+      setFormData({ make: '', model: '', year: '', nickname: '' });
       setIsAdding(false);
+      setEditingVehicleId(null);
     }
   };
 
@@ -42,7 +56,7 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAdd,
         </div>
         {!isAdding && (
           <button
-            onClick={() => setIsAdding(true)}
+            onClick={handleStartAdd}
             className="flex items-center space-x-2 bg-blue-600 text-white px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
           >
             <Plus size={20} />
@@ -64,67 +78,78 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAdd,
       )}
 
       {isAdding && (
-        <div className="bg-white rounded-xl shadow-sm border border-slate-200 p-6">
-          <h3 className="text-lg font-semibold mb-4">Add New Vehicle</h3>
-          <form onSubmit={handleSubmit} className="space-y-4">
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+        <div className="bg-white rounded-xl shadow-lg border border-blue-100 p-6 ring-2 ring-blue-500/20">
+          <div className="flex justify-between items-center mb-6">
+            <h3 className="text-xl font-bold text-slate-900">
+              {editingVehicleId ? 'Edit Vehicle' : 'Add New Vehicle'}
+            </h3>
+            <button 
+              onClick={() => setIsAdding(false)}
+              className="p-2 text-slate-400 hover:text-slate-600 rounded-full hover:bg-slate-100"
+            >
+              <X size={20} />
+            </button>
+          </div>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Year</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Year</label>
                 <input
                   type="number"
                   required
                   placeholder="e.g. 2023"
-                  className="w-full rounded-lg border-slate-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  value={newVehicle.year}
-                  onChange={e => setNewVehicle({ ...newVehicle, year: e.target.value })}
+                  className="w-full rounded-lg border-slate-300 border px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  value={formData.year}
+                  onChange={e => setFormData({ ...formData, year: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Make</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Make</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Toyota"
-                  className="w-full rounded-lg border-slate-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  value={newVehicle.make}
-                  onChange={e => setNewVehicle({ ...newVehicle, make: e.target.value })}
+                  className="w-full rounded-lg border-slate-300 border px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  value={formData.make}
+                  onChange={e => setFormData({ ...formData, make: e.target.value })}
                 />
               </div>
               <div>
-                <label className="block text-sm font-medium text-slate-700 mb-1">Model</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-1">Model</label>
                 <input
                   type="text"
                   required
                   placeholder="e.g. Camry"
-                  className="w-full rounded-lg border-slate-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                  value={newVehicle.model}
-                  onChange={e => setNewVehicle({ ...newVehicle, model: e.target.value })}
+                  className="w-full rounded-lg border-slate-300 border px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                  value={formData.model}
+                  onChange={e => setFormData({ ...formData, model: e.target.value })}
                 />
               </div>
             </div>
             <div>
-              <label className="block text-sm font-medium text-slate-700 mb-1">Nickname (Optional)</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-1">Nickname (Optional)</label>
               <input
                 type="text"
                 placeholder="e.g. My Daily Driver"
-                className="w-full rounded-lg border-slate-300 border px-3 py-2 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none"
-                value={newVehicle.nickname}
-                onChange={e => setNewVehicle({ ...newVehicle, nickname: e.target.value })}
+                className="w-full rounded-lg border-slate-300 border px-3 py-2.5 focus:ring-2 focus:ring-blue-500 focus:border-blue-500 outline-none transition-all"
+                value={formData.nickname}
+                onChange={e => setFormData({ ...formData, nickname: e.target.value })}
               />
             </div>
-            <div className="flex justify-end space-x-3 pt-2">
+            <div className="flex justify-end space-x-3 pt-4 border-t border-slate-100">
               <button
                 type="button"
                 onClick={() => setIsAdding(false)}
-                className="px-4 py-2 text-slate-600 hover:bg-slate-100 rounded-lg transition-colors"
+                className="px-6 py-2.5 text-slate-600 hover:bg-slate-100 rounded-lg font-medium transition-colors"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-6 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors shadow-sm"
+                className="px-8 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-all shadow-md hover:shadow-lg font-bold flex items-center gap-2"
               >
-                Save Vehicle
+                <Save size={18} />
+                <span>{editingVehicleId ? 'Save Changes' : 'Save Vehicle'}</span>
               </button>
             </div>
           </form>
@@ -133,21 +158,34 @@ export const VehicleManager: React.FC<VehicleManagerProps> = ({ vehicles, onAdd,
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
         {vehicles.map(vehicle => (
-          <div key={vehicle.id} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-shadow relative group">
+          <div key={vehicle.id} className="bg-white rounded-xl p-6 shadow-sm border border-slate-200 hover:shadow-md transition-all relative group hover:border-blue-200">
             <div className="flex items-start justify-between mb-4">
-              <div className="p-3 bg-blue-50 rounded-lg text-blue-600">
+              <div className="p-3 bg-blue-50 rounded-lg text-blue-600 group-hover:bg-blue-600 group-hover:text-white transition-colors">
                 <Car size={24} />
               </div>
-              <button
-                onClick={() => onDelete(vehicle.id)}
-                className="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
-                title="Delete Vehicle"
-              >
-                <Trash2 size={18} />
-              </button>
+              <div className="flex space-x-1">
+                <button
+                  onClick={() => handleStartEdit(vehicle)}
+                  className="text-slate-400 hover:text-blue-600 p-2 rounded-full hover:bg-blue-50 transition-colors"
+                  title="Edit Vehicle"
+                >
+                  <Pencil size={18} />
+                </button>
+                <button
+                  onClick={() => onDelete(vehicle.id)}
+                  className="text-slate-400 hover:text-red-500 p-2 rounded-full hover:bg-red-50 transition-colors"
+                  title="Delete Vehicle"
+                >
+                  <Trash2 size={18} />
+                </button>
+              </div>
             </div>
             <h3 className="font-bold text-lg text-slate-900">{vehicle.nickname}</h3>
             <p className="text-slate-500">{vehicle.year} {vehicle.make} {vehicle.model}</p>
+            
+            <div className="mt-4 pt-4 border-t border-slate-50 text-xs text-slate-400">
+              ID: {vehicle.id.slice(0, 8)}...
+            </div>
           </div>
         ))}
       </div>
