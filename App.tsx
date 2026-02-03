@@ -22,8 +22,8 @@ const PermissionErrorModal = ({ onClose }: { onClose: () => void }) => (
         <p>Your app is connected to Firebase, but your <strong>Firestore Security Rules</strong> are blocking the save operation.</p>
         
         <div className="bg-slate-100 p-4 rounded-lg font-mono text-xs overflow-x-auto border border-slate-200">
-          <p className="text-blue-700 font-bold mb-2">// Copy this to your Firebase Console > Firestore > Rules:</p>
-          <pre>{`match /users/{userId}/{document=**} {
+          <p className="text-blue-700 font-bold mb-2">// Copy this to your Firebase Console &gt; Firestore &gt; Rules:</p>
+          <pre className="mt-2 text-slate-800">{`match /users/{userId}/{document=**} {
   allow read, write: if request.auth != null 
     && request.auth.uid == userId;
 }`}</pre>
