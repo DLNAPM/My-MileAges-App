@@ -365,7 +365,7 @@ function App() {
   return (
     <>
       {view === 'landing' ? (
-        <div className="relative">
+        <div className="relative h-screen overflow-y-auto">
           <LandingPage onLogin={handleLogin} onGuestLogin={handleGuestLogin} onHelp={() => setShowHelp(true)} />
           <button 
             onClick={() => setShowConfig(true)}
